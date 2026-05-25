@@ -1,167 +1,167 @@
-# React Native Architecture — Guia Prático
+# React Native Architecture — Practical Guide
 
-Projeto didático para entender, de forma simples e na prática, a **Nova Arquitetura do React Native** (Fabric, TurboModules, JSI, Hermes) — comparada com a **arquitetura antiga** baseada na Bridge.
+Didactic project to understand, in a simple and hands-on way, the **React Native New Architecture** (Fabric, TurboModules, JSI, Hermes) — compared with the **old architecture** based on the Bridge.
 
-> Este README é o material de estudo. O app é apenas um suporte visual para fixar os conceitos. Os botões de cada tela disparam código que ilustra um ponto específico explicado abaixo.
+> This README is the study material. The app is just a visual aid to reinforce the concepts. Each screen's buttons trigger code that illustrates a specific point explained below.
 
 ---
 
-## Sumário
+## Table of Contents
 
-1. [Como rodar](#como-rodar)
-2. [Diagrama geral — arquitetura antiga vs nova](#diagrama-geral--arquitetura-antiga-vs-nova)
-3. [Por que essa arquitetura existe](#por-que-essa-arquitetura-existe)
-4. [Arquitetura antiga (Bridge + Paper)](#arquitetura-antiga-bridge--paper)
-5. [Nova arquitetura: visão geral](#nova-arquitetura-visão-geral)
+1. [How to run](#how-to-run)
+2. [Overall diagram — old vs new architecture](#overall-diagram--old-vs-new-architecture)
+3. [Why this architecture exists](#why-this-architecture-exists)
+4. [Old architecture (Bridge + Paper)](#old-architecture-bridge--paper)
+5. [New Architecture: overview](#new-architecture-overview)
 6. [JSI — JavaScript Interface](#jsi--javascript-interface)
-7. [Fabric — o novo renderer](#fabric--o-novo-renderer)
-8. [TurboModules e Codegen](#turbomodules-e-codegen)
+7. [Fabric — the new renderer](#fabric--the-new-renderer)
+8. [TurboModules and Codegen](#turbomodules-and-codegen)
 9. [Thread Model](#thread-model)
 10. [Hermes vs JSC](#hermes-vs-jsc)
-11. [Metro Bundler e Fast Refresh](#metro-bundler-e-fast-refresh)
-12. [Concurrent React no mobile](#concurrent-react-no-mobile)
-13. [Reanimated 3 — JSI na prática](#reanimated-3--jsi-na-prática)
-14. [Interop Layer — migração incremental](#interop-layer--migração-incremental)
+11. [Metro Bundler and Fast Refresh](#metro-bundler-and-fast-refresh)
+12. [Concurrent React on mobile](#concurrent-react-on-mobile)
+13. [Reanimated 3 — JSI in practice](#reanimated-3--jsi-in-practice)
+14. [Interop Layer — incremental migration](#interop-layer--incremental-migration)
 15. [Tradeoffs](#tradeoffs)
-16. [Alternativas no ecossistema](#alternativas-no-ecossistema)
-17. [Fluxo completo: toque → setState](#fluxo-completo-toque--setstate)
-18. [Roteiro de estudo sugerido](#roteiro-de-estudo-sugerido)
-19. [Referências](#referências)
+16. [Ecosystem alternatives](#ecosystem-alternatives)
+17. [Full flow: tap → setState](#full-flow-tap--setstate)
+18. [Suggested study roadmap](#suggested-study-roadmap)
+19. [References](#references)
 
 ---
 
-## Como rodar
+## How to run
 
-Pré-requisitos (instale o que faltar):
+Prerequisites (install whatever is missing):
 
 - Node ≥ 22.11
-- Watchman (recomendado)
-- **iOS**: Xcode completo (não só CLI tools), CocoaPods (`bundle install` no diretório `ios/`), Ruby gerenciado por rbenv ou similar
-- **Android**: Android Studio + SDK, JDK 17+, `ANDROID_HOME` configurado
+- Watchman (recommended)
+- **iOS**: full Xcode (not just CLI tools), CocoaPods (`bundle install` inside `ios/`), Ruby managed by rbenv or similar
+- **Android**: Android Studio + SDK, JDK 17+, `ANDROID_HOME` set
 
 ```bash
-# 1) instalar dependências
+# 1) install dependencies
 npm install
 
-# 2) iOS (gera AppSpecs via codegen no pod install)
+# 2) iOS (codegen runs via pod install, generating AppSpecs)
 cd ios && bundle install && bundle exec pod install && cd ..
 npm run ios
 
-# 3) Android (codegen roda como parte do gradle build)
+# 3) Android (codegen runs as part of the gradle build)
 npm run android
 ```
 
-Se o build falhar, geralmente é o codegen que precisa rodar:
+If the build fails, codegen usually needs to be triggered manually:
 
 ```bash
 # Android
 cd android && ./gradlew generateCodegenArtifactsFromSchema && cd ..
 
-# iOS — basta refazer pod install
+# iOS — just re-run pod install
 cd ios && bundle exec pod install && cd ..
 ```
 
-A Nova Arquitetura já vem **habilitada por padrão** a partir do React Native 0.76. Não precisa de flag.
+The New Architecture is **enabled by default** starting from React Native 0.76. No flag needed.
 
 ---
 
-## Diagrama geral — arquitetura antiga vs nova
+## Overall diagram — old vs new architecture
 
-### Arquitetura antiga (até RN 0.68)
+### Old Architecture (up to RN 0.68)
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║                        ARQUITETURA ANTIGA                            ║
+║                          OLD ARCHITECTURE                            ║
 ╠══════════════════╦═══════════════════════╦═══════════════════════════╣
 ║   JS THREAD      ║       BRIDGE          ║    NATIVE (UI THREAD)     ║
 ║                  ║                       ║                           ║
 ║  ┌────────────┐  ║  ┌─────────────────┐  ║  ┌─────────────────────┐ ║
-║  │  Seu       │  ║  │  Serializa JSON │  ║  │  Paper Renderer     │ ║
-║  │  código JS │──╬─►│  (batch, async) │──╬─►│  (cria UIViews)     │ ║
+║  │  Your      │  ║  │  Serializes JSON│  ║  │  Paper Renderer     │ ║
+║  │  JS code   │──╬─►│  (batch, async) │──╬─►│  (creates UIViews)  │ ║
 ║  │  + React   │  ║  │                 │  ║  │                     │ ║
-║  └────────────┘  ║  │  Fila de        │  ║  │  NativeModules      │ ║
-║        │         ║  │  mensagens      │◄─╬──│  (eager, todos      │ ║
-║  ┌─────▼──────┐  ║  │                 │  ║  │   no startup)       │ ║
-║  │  JSC/      │  ║  └─────────────────┘  ║  └─────────────────────┘ ║
+║  └────────────┘  ║  │  Message queue  │  ║  │  NativeModules      │ ║
+║        │         ║  │                 │◄─╬──│  (eager, all of     │ ║
+║  ┌─────▼──────┐  ║  │                 │  ║  │   them on startup)  │ ║
+║  │  JSC /     │  ║  └─────────────────┘  ║  └─────────────────────┘ ║
 ║  │  JavaScr.  │  ║                       ║                           ║
-║  │  Core      │  ║  ⚠ Tudo assíncrono    ║  ┌─────────────────────┐ ║
-║  └────────────┘  ║  ⚠ Cópia JSON a       ║  │  Yoga Layout        │ ║
-║                  ║    cada chamada       ║  │  (outra thread)     │ ║
-║                  ║  ⚠ Sem tipos          ║  └─────────────────────┘ ║
+║  │  Core      │  ║  ⚠ Everything async   ║  ┌─────────────────────┐ ║
+║  └────────────┘  ║  ⚠ JSON copy on       ║  │  Yoga Layout        │ ║
+║                  ║    every call         ║  │  (another thread)   │ ║
+║                  ║  ⚠ No type safety     ║  └─────────────────────┘ ║
 ╚══════════════════╩═══════════════════════╩═══════════════════════════╝
 
-Fluxo de uma chamada nativa:
-  JS chama módulo → serializa para JSON → enfileira na Bridge →
-  nativo deserializa → executa → serializa resposta →
-  Bridge → JS deserializa → callback
-  (mínimo: 2 serializações + 1 round-trip assíncrono)
+Flow of a native call:
+  JS calls module → serializes to JSON → enqueues on Bridge →
+  native deserializes → executes → serializes response →
+  Bridge returns to JS → JS deserializes → callback
+  (minimum: 2 serializations + 1 async round-trip)
 ```
 
-### Nova Arquitetura (RN 0.76+ padrão)
+### New Architecture (RN 0.76+ default)
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║                         NOVA ARQUITETURA                             ║
+║                          NEW ARCHITECTURE                            ║
 ╠══════════════════╦═══════════════════════╦═══════════════════════════╣
-║   JS THREAD      ║    JSI (C++ direto)   ║    NATIVE (UI THREAD)     ║
+║   JS THREAD      ║    JSI (direct C++)   ║    NATIVE (UI THREAD)     ║
 ║                  ║                       ║                           ║
 ║  ┌────────────┐  ║  ┌─────────────────┐  ║  ┌─────────────────────┐ ║
-║  │  Seu       │  ║  │  Host Objects   │  ║  │  Fabric Renderer    │ ║
-║  │  código JS │──╬─►│  (ref. C++ no   │  ║  │                     │ ║
-║  │  + React   │  ║  │   global do JS) │  ║  │  Recebe commits     │ ║
-║  └────────────┘  ║  │                 │  ║  │  atômicos da        │ ║
-║        │         ║  │  Sem serializ.  │  ║  │  Shadow Tree        │ ║
-║  ┌─────▼──────┐  ║  │  Pode ser sync  │──╬─►│                     │ ║
+║  │  Your      │  ║  │  Host Objects   │  ║  │  Fabric Renderer    │ ║
+║  │  JS code   │──╬─►│  (C++ ref in    │  ║  │                     │ ║
+║  │  + React   │  ║  │   JS global)    │  ║  │  Receives atomic    │ ║
+║  └────────────┘  ║  │                 │  ║  │  commits from the   │ ║
+║        │         ║  │  No serializ.   │  ║  │  Shadow Tree        │ ║
+║  ┌─────▼──────┐  ║  │  Can be sync    │──╬─►│                     │ ║
 ║  │  Hermes    │  ║  └─────────────────┘  ║  └─────────────────────┘ ║
 ║  │  (bytecode,│  ║                       ║                           ║
-║  │  sem JIT)  │  ║  ┌─────────────────┐  ║  ┌─────────────────────┐ ║
-║  └────────────┘  ║  │  TurboModules   │  ║  │  TurboModules       │ ║
-║                  ║  │  (lazy, tipados │◄─╬──│  nativos            │ ║
-║                  ║  │   via codegen)  │  ║  │  (iOS/Android)      │ ║
+║  │  no JIT)   │  ║  ┌─────────────────┐  ║  ┌─────────────────────┐ ║
+║  └────────────┘  ║  │  TurboModules   │  ║  │  Native TurboMod.   │ ║
+║                  ║  │  (lazy, typed   │◄─╬──│  (iOS / Android)    │ ║
+║                  ║  │   via codegen)  │  ║  │                     │ ║
 ║                  ║  └─────────────────┘  ║  └─────────────────────┘ ║
 ╠══════════════════╩═══════════════════════╩═══════════════════════════╣
 ║                   BACKGROUND / SHADOW THREAD                         ║
 ║                                                                      ║
 ║   ┌──────────────────────────────────────────────────────────────┐   ║
-║   │  Shadow Tree (C++)  ──►  Yoga Layout  ──►  Commit atômico   │   ║
+║   │  Shadow Tree (C++)  ──►  Yoga Layout  ──►  Atomic commit    │   ║
 ║   └──────────────────────────────────────────────────────────────┘   ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
-Fluxo de uma chamada nativa:
-  JS acessa objeto C++ no global → invoca função → resultado retorna
-  (0 serializações, pode ser síncrono)
+Flow of a native call:
+  JS accesses C++ object on the global → invokes function → result returns
+  (0 serializations, can be synchronous)
 ```
 
-### Comparação direta
+### Direct comparison
 
 ```
-                    ANTIGA                    NOVA
-                    ──────                    ────
-Comunicação:        Bridge (JSON async)       JSI (C++ direto)
+                    OLD                       NEW
+                    ───                       ───
+Communication:      Bridge (JSON async)       JSI (direct C++)
 Renderer:           Paper                     Fabric
-Módulos nativos:    NativeModules (eager)     TurboModules (lazy)
-Tipagem:            Nenhuma em runtime        Codegen (build time)
-Startup:            Carrega tudo              Carrega só o necessário
-Layout sync:        Impossível               Possível via JSI
-Engine JS padrão:   JSC                       Hermes
+Native modules:     NativeModules (eager)     TurboModules (lazy)
+Type safety:        None at runtime           Codegen (build time)
+Startup:            Loads everything          Loads only what is needed
+Sync layout:        Impossible                Possible via JSI
+Default JS engine:  JSC                       Hermes
 ```
 
 ---
 
-## Por que essa arquitetura existe
+## Why this architecture exists
 
-O React Native original (2015) provou que dava para usar React fora do navegador, mas o modelo de comunicação tinha limites duros:
+The original React Native (2015) proved you could use React outside the browser, but the communication model had hard limits:
 
-- **Assíncrono por natureza**: toda chamada JS↔nativo passava por uma Bridge serializando JSON em batches. Mesmo coisas triviais (medir uma view, ler uma constante) eram assíncronas.
-- **Sem segurança de tipos** entre JS e nativo: tudo era JSON livre. Erros só apareciam em runtime.
-- **Startup pesado**: todos os módulos nativos eram instanciados no boot, mesmo os que o app nunca usaria.
-- **Animações dependiam de pular a Bridge** (`useNativeDriver`) para serem suaves — sintoma de que o caminho normal era lento demais.
+- **Async by nature**: every JS↔native call went through a Bridge serializing JSON in batches. Even trivial things (measuring a view, reading a constant) were asynchronous.
+- **No type safety** between JS and native: everything was free-form JSON. Errors only surfaced at runtime.
+- **Heavy startup**: all native modules were instantiated on boot, even ones the app would never use.
+- **Animations required bypassing the Bridge** (`useNativeDriver`) to be smooth — a symptom that the normal path was too slow.
 
-A Nova Arquitetura ataca esses problemas trocando o protocolo de comunicação (Bridge → JSI), o renderer (Paper → Fabric) e o modelo de módulos nativos (NativeModules → TurboModules), com **codegen** garantindo contratos tipados.
+The New Architecture tackles these problems by replacing the communication protocol (Bridge → JSI), the renderer (Paper → Fabric), and the native module model (NativeModules → TurboModules), with **codegen** enforcing typed contracts.
 
 ---
 
-## Arquitetura antiga (Bridge + Paper)
+## Old architecture (Bridge + Paper)
 
 ```
 ┌────────────┐   JSON batched, async   ┌─────────────┐
@@ -169,118 +169,118 @@ A Nova Arquitetura ataca esses problemas trocando o protocolo de comunicação (
 │ (JSC/Herm.)│  ◄───────────────────   │ (iOS/Andr.) │
 └────────────┘                          └─────────────┘
        │
-       └── Paper renderer cria operações de UI ──► serializa ──► Bridge ──► UI thread
+       └── Paper renderer creates UI ops ──► serializes ──► Bridge ──► UI thread
 ```
 
-Características:
-- **Bridge**: fila de mensagens JSON entre JS e nativo. Tudo assíncrono.
-- **Paper renderer**: gera "diffs" de UI e envia comandos serializados para a UI thread aplicar.
-- **NativeModules**: registrados de forma eager; o JS chama por nome (string), recebe Promise.
-- **Animated sem `useNativeDriver`** ficava preso no JS — atravessar a Bridge por frame era impossível em 60fps.
+Characteristics:
+- **Bridge**: JSON message queue between JS and native. Everything async.
+- **Paper renderer**: generates UI diffs and sends serialized commands to the UI thread to apply.
+- **NativeModules**: registered eagerly; JS calls by string name, receives a Promise.
+- **Animated without `useNativeDriver`** was stuck on the JS thread — crossing the Bridge per frame was impossible at 60fps.
 
-Limitações que ainda eram aceitáveis até deixarem de ser:
-- Layout síncrono é impossível: `measure()` é callback porque o Yoga roda do outro lado da Bridge.
-- Não dá para integrar React em código nativo existente sem virar a hierarquia de pernas pro ar.
-- Tooling de tipos: tudo string + JSON. Refatoração quebra silenciosamente.
+Limitations that were tolerable until they weren't:
+- Synchronous layout is impossible: `measure()` is a callback because Yoga runs on the other side of the Bridge.
+- Integrating React into an existing native app without flipping everything upside-down is impractical.
+- Type tooling: everything is strings + JSON. Refactoring breaks silently.
 
 ---
 
-## Nova arquitetura: visão geral
+## New Architecture: overview
 
-Três pilares novos e um habilitador transversal:
+Three new pillars and one cross-cutting enabler:
 
-| Peça                  | Antes                    | Agora                             |
-| --------------------- | ------------------------ | --------------------------------- |
-| Comunicação JS↔nativo | Bridge (JSON async)      | **JSI** (referências C++ diretas) |
-| Módulos nativos       | NativeModules (eager)    | **TurboModules** (lazy + tipados) |
-| Renderer              | Paper (assíncrono)       | **Fabric** (Shadow Tree em C++)   |
-| Tipagem               | Manual, propensa a erro  | **Codegen** a partir de specs TS  |
+| Piece                 | Before                    | Now                               |
+| --------------------- | ------------------------- | --------------------------------- |
+| JS↔native comms       | Bridge (JSON async)       | **JSI** (direct C++ references)   |
+| Native modules        | NativeModules (eager)     | **TurboModules** (lazy + typed)   |
+| Renderer              | Paper (async)             | **Fabric** (C++ Shadow Tree)      |
+| Type safety           | Manual, error-prone       | **Codegen** from TS specs         |
 
-Resultado prático:
-- Chamadas síncronas viáveis (com critério).
-- Startup mais rápido (módulos só carregam quando usados).
-- Erros de tipagem detectados no build, não em produção.
-- Layout que pode ser síncrono quando o JS precisa do tamanho.
+Practical results:
+- Synchronous calls are viable (used judiciously).
+- Faster startup (modules only load when first used).
+- Type errors caught at build time, not in production.
+- Layout can be synchronous when JS needs the size.
 
 ---
 
 ## JSI — JavaScript Interface
 
-JSI é uma **API C++ enxuta** que abstrai o runtime de JavaScript (Hermes, JSC, V8). Em vez de o JS mandar mensagens serializadas para o nativo, **um objeto C++ é exposto como propriedade no global do JS**. Chamar `MyModule.add(1,2)` vira invocação de função C++ direto.
+JSI is a **lean C++ API** that abstracts the JavaScript runtime (Hermes, JSC, V8). Instead of JS sending serialized messages to native, **a C++ object is exposed as a property on the JS global**. Calling `MyModule.add(1,2)` becomes a direct C++ function invocation.
 
 ```
-Antes (Bridge):
+Before (Bridge):
   JS: "Calculator.add(1, 2)"
-      → serializa: {"module":"Calculator","method":"add","args":[1,2]}
-      → enfileira na Bridge
-      → nativo deserializa e executa
-      → serializa resposta: {"result":3}
-      → Bridge devolve ao JS
-      → JS deserializa e chama callback
-             ↑ mínimo 2 cópias + 1 round-trip assíncrono
+      → serialize: {"module":"Calculator","method":"add","args":[1,2]}
+      → enqueue on Bridge
+      → native deserializes and executes
+      → serialize response: {"result":3}
+      → Bridge returns to JS
+      → JS deserializes and calls callback
+             ↑ minimum 2 copies + 1 async round-trip
 
-Agora (JSI):
-  JS: NativeCalculator.add(1, 2)   ← objeto C++ vive no global do JS
-      → C++ executa diretamente
-      → retorna 3
-             ↑ zero serialização, pode ser síncrono
+Now (JSI):
+  JS: NativeCalculator.add(1, 2)   ← C++ object lives on the JS global
+      → C++ executes directly
+      → returns 3
+             ↑ zero serialization, can be synchronous
 ```
 
-Implicações:
-- Não tem serialização JSON intermediária.
-- Permite chamadas síncronas (a função roda na JS thread).
-- Permite "Host Objects" — objetos JS cujas propriedades são respondidas por C++ on demand.
-- É a base de tudo: Fabric, TurboModules e bibliotecas como Reanimated 3 usam JSI por baixo.
+Implications:
+- No intermediate JSON serialization.
+- Synchronous calls are possible (the function runs on the JS thread).
+- Enables "Host Objects" — JS objects whose properties are answered by C++ on demand.
+- Foundation for everything: Fabric, TurboModules, and libraries like Reanimated 3 use JSI under the hood.
 
-JSI **não é mágica** — uma chamada síncrona pesada ainda bloqueia a JS thread. A vantagem é poder *escolher* síncrono ou assíncrono.
+JSI is **not magic** — a heavy synchronous call still blocks the JS thread. The advantage is being able to *choose* between sync and async.
 
 ---
 
-## Fabric — o novo renderer
+## Fabric — the new renderer
 
-Fabric substitui o Paper. O coração dele é uma **Shadow Tree em C++** que vive próxima ao runtime JS via JSI.
+Fabric replaces Paper. Its core is a **C++ Shadow Tree** that lives close to the JS runtime via JSI.
 
 ```
-  JSX no seu componente
+  JSX in your component
          │
          ▼
-  React reconcilia (diff)
+  React reconciles (diff)
          │
          ▼
-  Mutações na Shadow Tree (C++, via JSI)  ◄── sem JSON aqui
+  Shadow Tree mutations (C++, via JSI)  ◄── no JSON here
          │
          ▼
-  Yoga calcula layout (background thread)
+  Yoga computes layout (background thread)
          │
          ▼
-  Commit atômico  ◄── "fotografia" imutável da UI
+  Atomic commit  ◄── immutable "snapshot" of the new UI
          │
          ▼
-  Mount na UI thread  ──► UIView (iOS) / View (Android)
+  Mount on UI thread  ──► UIView (iOS) / View (Android)
 ```
 
-Por que isso importa na prática:
-- **Sync layout**: o JS pode pedir medida e receber resposta sem callback.
-- **Concorrência React real**: o commit é atômico — combina bem com Suspense, transitions, etc.
-- **Menos cópias**: a representação da UI é uma só, compartilhada entre JS e nativo.
-- **Host Components tipados**: componentes nativos têm contrato gerado por codegen.
+Why this matters in practice:
+- **Sync layout**: JS can request measurements and receive them without a callback.
+- **Real React concurrency**: the commit is atomic — works well with Suspense, transitions, etc.
+- **Fewer copies**: the UI representation is a single structure shared between JS and native.
+- **Typed Host Components**: native components have a contract generated by codegen.
 
-Veja a tela "Fabric Renderer" no app: cada `View`, `TextInput`, `Switch` é uma view nativa montada por esse pipeline.
+See the "Fabric Renderer" screen in the app: every `View`, `TextInput`, `Switch` is a native view mounted by this pipeline.
 
 ---
 
-## TurboModules e Codegen
+## TurboModules and Codegen
 
-Um **TurboModule** é a versão Nova Arquitetura de um NativeModule. Três mudanças importantes:
+A **TurboModule** is the New Architecture version of a NativeModule. Three key differences:
 
-1. **Spec em TypeScript** descreve o contrato ([src/specs/NativeCalculator.ts](src/specs/NativeCalculator.ts) aqui no projeto).
-2. **Codegen** lê a spec no build e gera:
-   - No Android: uma classe abstrata Java (`NativeCalculatorSpec`) que a sua classe Kotlin estende.
-   - No iOS: um protocol Objective-C (`NativeCalculatorSpec`) e structs C++ para constantes.
-3. **Acesso via JSI**: o módulo é exposto ao JS através do `TurboModuleRegistry`, sem string-based lookup pela Bridge.
+1. **TypeScript spec** describes the contract ([src/specs/NativeCalculator.ts](src/specs/NativeCalculator.ts) in this project).
+2. **Codegen** reads the spec at build time and generates:
+   - On Android: an abstract Java class (`NativeCalculatorSpec`) that your Kotlin class extends.
+   - On iOS: an Objective-C protocol (`NativeCalculatorSpec`) and C++ structs for constants.
+3. **JSI access**: the module is exposed to JS via `TurboModuleRegistry`, with no string-based Bridge lookup.
 
 ```
-  NativeCalculator.ts (sua spec TS)
+  NativeCalculator.ts (your TS spec)
          │
          ▼  BUILD TIME
   Codegen
@@ -288,342 +288,341 @@ Um **TurboModule** é a versão Nova Arquitetura de um NativeModule. Três mudan
     └──► NativeCalculatorSpec.h / .mm     (iOS)
          │
          ▼  RUNTIME
-  CalculatorModule.kt / Calculator.mm  (sua implementação)
+  CalculatorModule.kt / Calculator.mm  (your implementation)
          │
          ▼
   TurboModuleRegistry (via JSI)
          │
          ▼
-  JS acessa direto, sem string lookup, sem Bridge
+  JS accesses directly, no string lookup, no Bridge
 ```
 
-Lazy loading: o módulo só é instanciado quando o JS chama pela primeira vez — startup mais leve.
+Lazy loading: the module is only instantiated the first time JS requests it — lighter startup.
 
-### O TurboModule deste projeto
+### The TurboModule in this project
 
 - Spec: [src/specs/NativeCalculator.ts](src/specs/NativeCalculator.ts)
-- Config: [`codegenConfig`](package.json) no package.json
-- Android: [CalculatorModule.kt](android/app/src/main/java/com/rnarchdemo/calculator/CalculatorModule.kt), [CalculatorPackage.kt](android/app/src/main/java/com/rnarchdemo/calculator/CalculatorPackage.kt), registrado em [MainApplication.kt](android/app/src/main/java/com/rnarchdemo/MainApplication.kt)
+- Config: [`codegenConfig`](package.json) in package.json
+- Android: [CalculatorModule.kt](android/app/src/main/java/com/rnarchdemo/calculator/CalculatorModule.kt), [CalculatorPackage.kt](android/app/src/main/java/com/rnarchdemo/calculator/CalculatorPackage.kt), registered in [MainApplication.kt](android/app/src/main/java/com/rnarchdemo/MainApplication.kt)
 - iOS: [Calculator.h](ios/RNArchDemo/Calculator.h), [Calculator.mm](ios/RNArchDemo/Calculator.mm)
 
-A tela "TurboModule" no app exercita:
-- `add(a,b)` — **síncrono**, retorna `number` direto.
-- `multiplyAsync(a,b)` — **assíncrono**, despacha para outra thread no nativo e resolve uma Promise.
-- `getConstants()` — constantes vindas do nativo, **lazy** (no NativeModules antigo, eram eagerly enviadas no boot).
+The "TurboModule" screen in the app exercises:
+- `add(a,b)` — **synchronous**, returns `number` directly.
+- `multiplyAsync(a,b)` — **asynchronous**, dispatches to another thread natively and resolves a Promise.
+- `getConstants()` — constants from native, **lazy** (in old NativeModules they were sent eagerly on startup, increasing cold start time).
 
 ---
 
 ## Thread Model
 
-Pelo menos três threads relevantes convivem:
+At least three relevant threads run concurrently:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        THREADS EM PARALELO                       │
+│                      THREADS IN PARALLEL                         │
 ├──────────────────┬──────────────────┬───────────────────────────┤
 │   JS THREAD      │   UI THREAD      │   BACKGROUND THREAD       │
 │                  │   (Main)         │   (Shadow)                │
-│  • Seu código JS │  • Frames 60fps  │  • Fabric C++             │
-│  • React recon.  │  • Gestos        │  • Yoga layout            │
-│  • TurboModules  │  • Animações     │  • Commits                │
-│    síncronos     │    nativas       │                           │
+│  • Your JS code  │  • 60fps frames  │  • Fabric C++             │
+│  • React recon.  │  • Gestures      │  • Yoga layout            │
+│  • Sync TurboMod │  • Native anims  │  • Commits                │
 │                  │                  │                           │
-│  Se travar:      │  Se travar:      │  Se travar:               │
-│  setState pausa, │  App congela     │  Layout atrasado          │
-│  callbacks param │  visualmente     │                           │
+│  If blocked:     │  If blocked:     │  If blocked:              │
+│  setState pauses,│  App freezes     │  Layout delayed           │
+│  callbacks stop  │  visually        │                           │
 └──────────────────┴──────────────────┴───────────────────────────┘
 ```
 
-Pontos práticos:
-- **`useNativeDriver: true`** (Animated) executa a animação na UI thread — ela continua suave mesmo se o JS travar. Veja a tela "Thread Model" no app: o botão "Travar JS por 2s" demonstra que a bolinha não pára de animar.
-- **Reanimated 3** vai além: executa "worklets" JS direto na UI thread via JSI.
-- **TurboModules síncronos** rodam na JS thread (não usam fila assíncrona). Útil para coisas baratas; ruim para coisas pesadas.
-- **TurboModules assíncronos** podem despachar para Executors (Android) ou GCD (iOS) e devolver via Promise.
+Practical points:
+- **`useNativeDriver: true`** (Animated) runs the animation on the UI thread — it stays smooth even if JS is blocked. See the "Thread Model" screen in the app: the "Block JS for 2s" button demonstrates that the ball keeps moving.
+- **Reanimated 3** goes further: runs JS "worklets" directly on the UI thread via JSI.
+- **Synchronous TurboModules** run on the JS thread (no async queue). Good for cheap work; bad for heavy work.
+- **Async TurboModules** can dispatch to Executors (Android) or GCD (iOS) and return via Promise.
 
 ---
 
 ## Hermes vs JSC
 
-Hermes é o engine JavaScript criado pela Meta especificamente para mobile. Antes dele, o RN usava **JavaScriptCore (JSC)** — o mesmo engine do Safari.
+Hermes is the JavaScript engine created by Meta specifically for mobile. Before it, RN used **JavaScriptCore (JSC)** — the same engine as Safari.
 
 ```
                    JSC                       HERMES
                    ───                       ──────
-Parse do JS:       Em runtime (no boot)      Em build (gera bytecode .hbc)
-JIT:               Sim                       Não (deliberado)
-Startup:           Mais lento               Mais rápido
-Memória:           Maior                    Menor
-Startup previsível: Não (depende do JIT)    Sim (bytecode pré-compilado)
-Debugging:         Chrome DevTools          Chrome DevTools + Flipper
-Padrão no RN:      Até 0.69                 0.70+
+JS parsing:        At runtime (on boot)      At build time (emits .hbc bytecode)
+JIT:               Yes                       No (deliberate)
+Startup:           Slower                    Faster
+Memory:            Higher                    Lower
+Predictable start: No (depends on JIT)       Yes (pre-compiled bytecode)
+Debugging:         Chrome DevTools           Chrome DevTools + Flipper
+Default in RN:     Up to 0.69               0.70+
 ```
 
-**Por que sem JIT?**
-JIT (Just-In-Time compilation) acelera código quente depois de rodar algumas vezes — ótimo para servidores de longa duração. Em apps mobile, o usuário já fechou o app antes do JIT aquecer. O Hermes troca JIT por bytecode pré-compilado: o código chega "aquecido" desde o primeiro frame.
+**Why no JIT?**
+JIT (Just-In-Time compilation) speeds up hot code after it runs a few times — great for long-running servers. On mobile apps, users often close the app before JIT has a chance to warm up. Hermes trades JIT for pre-compiled bytecode: the code arrives "warm" from the very first frame.
 
-Hermes integra com a Nova Arquitetura via JSI — todas as chamadas C++/JSI funcionam transparentemente em cima dele.
+Hermes integrates with the New Architecture via JSI — all C++/JSI calls work transparently on top of it.
 
 ---
 
-## Metro Bundler e Fast Refresh
+## Metro Bundler and Fast Refresh
 
-**Metro** é o bundler JavaScript do React Native (equivalente ao Webpack/Vite no mundo web). Ele roda em background durante o desenvolvimento (`npm start`).
+**Metro** is React Native's JavaScript bundler (equivalent to Webpack/Vite in the web world). It runs in the background during development (`npm start`).
 
 ```
-  Seus arquivos .tsx/.ts
+  Your .tsx/.ts files
          │
          ▼
   Metro Bundler
-    ├── resolve imports
-    ├── transpila TypeScript → JS
-    ├── aplica Babel transforms
-    └── gera bundle JS
+    ├── resolves imports
+    ├── transpiles TypeScript → JS
+    ├── applies Babel transforms
+    └── produces JS bundle
          │
          ▼  DEV
-  Servidor HTTP local  ──► app faz download do bundle via rede
+  Local HTTP server  ──► app downloads bundle over the network
          │
          ▼  PROD
-  Bundle empacotado no .apk / .ipa  (via hermes: compila para .hbc)
+  Bundle packed into .apk / .ipa  (via Hermes: compiled to .hbc)
 ```
 
-**Fast Refresh** é o mecanismo que atualiza o componente que você editou sem perder o estado dos outros componentes. É diferente do "hot reload" antigo (que reiniciava tudo) e do "live reload" (que também reiniciava).
+**Fast Refresh** is the mechanism that updates only the component you edited without losing the state of other components. It is different from the old "hot reload" (which restarted everything) and "live reload" (which also restarted).
 
-Como funciona por baixo:
-1. Metro detecta mudança no arquivo.
-2. Envia apenas o módulo atualizado ao app via WebSocket.
-3. O runtime React substitui o componente em memória.
-4. Estado local de componentes não editados é preservado.
+How it works under the hood:
+1. Metro detects a file change.
+2. Sends only the updated module to the app via WebSocket.
+3. The React runtime swaps the component in memory.
+4. Local state of unedited components is preserved.
 
-Limitação: se você editar um módulo não-componente (utilitário, hook de estado global), o Fast Refresh reinicia o app inteiro para garantir consistência.
+Limitation: if you edit a non-component module (utility, global state hook), Fast Refresh restarts the whole app to guarantee consistency.
 
 ---
 
-## Concurrent React no mobile
+## Concurrent React on mobile
 
-O React 18 introduziu o **modo concorrente** — a capacidade do React de pausar e retomar o trabalho de renderização. No mobile, isso importa porque:
+React 18 introduced **concurrent mode** — the ability for React to pause and resume rendering work. On mobile, this matters because:
 
-- **Transitions** (`useTransition`): marcam uma atualização como "não urgente". O React pode interromper a renderização dela se chegar uma atualização mais urgente (ex: um toque do usuário).
-- **Suspense** (`<Suspense fallback={...}>`): permite aguardar dados sem bloquear a UI.
-- **`startTransition`**: mantém a UI responsiva enquanto uma tela pesada carrega.
+- **Transitions** (`useTransition`): mark an update as "non-urgent". React can interrupt its rendering if a more urgent update arrives (e.g. a user tap).
+- **Suspense** (`<Suspense fallback={...}>`): wait for data without blocking the UI.
+- **`startTransition`**: keeps the UI responsive while a heavy screen loads.
 
 ```
-  Sem modo concorrente:
-    usuário digita → React renderiza tela inteira → UI trava por 200ms
+  Without concurrent mode:
+    user types → React renders entire screen → UI freezes for 200ms
 
-  Com modo concorrente:
-    usuário digita → React começa a renderizar (baixa prioridade)
-                   → usuário digita mais → React PAUSA a renderização anterior
-                   → processa o novo caractere (alta prioridade)
-                   → retoma a renderização pesada depois
+  With concurrent mode:
+    user types → React starts rendering (low priority)
+               → user types more → React PAUSES the previous render
+               → processes new character (high priority)
+               → resumes heavy render afterwards
 ```
 
-O Fabric foi desenhado para suportar isso: o **commit atômico** significa que uma "rascunho" de renderização pode ser descartado sem nunca ter chegado à UI thread — algo impossível com o Paper assíncrono da arquitetura antiga.
+Fabric was designed to support this: the **atomic commit** means a draft rendering can be discarded before ever reaching the UI thread — something impossible with the async Paper renderer of the old architecture.
 
 ---
 
-## Reanimated 3 — JSI na prática
+## Reanimated 3 — JSI in practice
 
-O Reanimated 3 é a demonstração mais visível do poder do JSI no mundo real. Ele permite que você escreva código JavaScript que roda diretamente na **UI thread**, sem passar pelo JS thread a cada frame.
+Reanimated 3 is the most visible demonstration of JSI's power in the real world. It lets you write JavaScript that runs directly on the **UI thread**, without going through the JS thread on every frame.
 
 ```
-  Animação sem Reanimated (JS Animated):
-    UI thread renderiza frame ──► pede valor ao JS ──► aguarda ──► recebe ──► renderiza
-    (cada frame atravessa a Bridge/JSI ida e volta)
+  Animation without Reanimated (JS Animated):
+    UI thread renders frame ──► asks JS for value ──► waits ──► receives ──► renders
+    (each frame crosses JSI/Bridge round-trip)
 
-  Animação com Reanimated 3 (worklets):
-    UI thread renderiza frame ──► executa worklet direto ──► renderiza
-    (JS fica fora do caminho crítico)
+  Animation with Reanimated 3 (worklets):
+    UI thread renders frame ──► executes worklet directly ──► renders
+    (JS is out of the critical path)
 ```
 
-**Worklets** são funções JS especiais marcadas com `'worklet'` que o Reanimated copia para a UI thread via JSI. Elas têm acesso a valores animados (`useSharedValue`) mas rodam em paralelo ao JS thread normal.
+**Worklets** are special JS functions marked with `'worklet'` that Reanimated copies to the UI thread via JSI. They have access to animated values (`useSharedValue`) but run in parallel to the normal JS thread.
 
 ```typescript
 const offset = useSharedValue(0);
 
 const animatedStyle = useAnimatedStyle(() => {
-  'worklet'; // essa função roda na UI thread, não no JS
+  'worklet'; // this function runs on the UI thread, not in JS
   return { transform: [{ translateX: offset.value }] };
 });
 ```
 
-Isso é o que permite animações a 120fps em ProMotion sem engolir a JS thread — algo impossível com a arquitetura antiga.
+This is what enables 120fps animations on ProMotion displays without consuming the JS thread — something impractical with the old architecture.
 
 ---
 
-## Interop Layer — migração incremental
+## Interop Layer — incremental migration
 
-Quando a Nova Arquitetura foi habilitada por padrão no RN 0.76, a maior preocupação era: "e as centenas de bibliotecas que ainda usam a Bridge antiga?". A resposta é a **Interop Layer**.
+When the New Architecture was enabled by default in RN 0.76, the biggest concern was: "what about the hundreds of libraries still using the old Bridge?". The answer is the **Interop Layer**.
 
 ```
-  Nova Arquitetura (Fabric + JSI)
+  New Architecture (Fabric + JSI)
          │
          ▼
-  Interop Layer  ◄── camada de compatibilidade
+  Interop Layer  ◄── compatibility shim
          │
          ▼
-  Biblioteca legada (usa Bridge / Paper / NativeModules antigos)
+  Legacy library (uses Bridge / Paper / old NativeModules)
 ```
 
-Como funciona:
-- **Para componentes UI**: o Fabric tem um modo de compatibilidade que envolve componentes Paper antigos em um wrapper Fabric.
-- **Para módulos nativos**: o TurboModuleRegistry consegue acessar NativeModules legados como se fossem TurboModules (com custo de performance, mas sem quebrar).
+How it works:
+- **For UI components**: Fabric has a compatibility mode that wraps old Paper components in a Fabric wrapper.
+- **For native modules**: the TurboModuleRegistry can access legacy NativeModules as if they were TurboModules (with a performance cost, but without breaking).
 
-Isso permite que apps grandes migrem assim:
-1. Ativa Nova Arquitetura (RN 0.76+).
-2. App continua funcionando — bibliotecas legadas rodam via interop.
-3. Ao longo do tempo, substitui por versões nativas da Nova Arquitetura.
-4. Remove a interop layer quando não precisar mais.
+This lets large apps migrate like this:
+1. Enable New Architecture (RN 0.76+).
+2. App keeps working — legacy libraries run via interop.
+3. Over time, replace them with New Architecture-native versions.
+4. Remove the interop layer when no longer needed.
 
-O custo da interop é real: você paga parte do overhead da Bridge onde ela ainda está ativa. Mas é muito melhor do que uma reescrita big-bang.
+The interop cost is real: you pay part of the Bridge overhead where it is still active. But it is far better than a big-bang rewrite.
 
 ---
 
 ## Tradeoffs
 
-### Ganhos
-- Performance percebida melhor (startup, animações, layout).
-- Contratos tipados ponta a ponta.
-- Pipeline mais previsível e debugável (commits atômicos do Fabric).
-- Permite recursos avançados do React (Suspense, transições) funcionarem direito.
+### Gains
+- Better perceived performance (startup, animations, layout).
+- End-to-end typed contracts.
+- More predictable and debuggable pipeline (atomic Fabric commits).
+- Enables advanced React features (Suspense, transitions) to work correctly.
 
-### Custos
-- **Complexidade de build**: codegen, Pods, gradle plugins, mais peças móveis.
-- **Curva de aprendizado**: precisa entender Shadow Tree, JSI, código C++/Obj-C++ para módulos mais sofisticados.
-- **Compatibilidade**: bibliotecas antigas podem precisar de wrappers de interop (a Nova Arquitetura mantém compatibilidade via *interop layer*, mas com custo).
-- **Debug nativo é mais "C++"**: stack traces atravessam camadas adicionais.
-- **Tooling ainda amadurecendo** em alguns nichos (alguns mocks de teste, algumas bibliotecas legadas).
+### Costs
+- **Build complexity**: codegen, Pods, gradle plugins, more moving parts.
+- **Learning curve**: requires understanding Shadow Tree, JSI, C++/Obj-C++ for more sophisticated modules.
+- **Compatibility**: older libraries may need interop wrappers (the New Architecture keeps compatibility via the *interop layer*, but at a cost).
+- **Native debugging is more "C++"**: stack traces traverse additional layers.
+- **Tooling still maturing** in some areas (some test mocks, some legacy libraries).
 
-### Quando vale o trade
-Para apps novos a partir de 2025, é o caminho default — não há ganho real em começar na arquitetura antiga. Para apps grandes em produção, a migração geralmente é incremental: ativa Fabric, migra módulos críticos para TurboModules, depende do interop para o resto.
-
----
-
-## Alternativas no ecossistema
-
-Não confunda "alternativa ao Fabric" com "alternativa ao React Native". As principais opções fora do RN:
-
-| Solução                    | Modelo                                         | Quando faz sentido                          |
-| -------------------------- | ---------------------------------------------- | ------------------------------------------- |
-| **Flutter**                | UI própria (Skia/Impeller), Dart               | Quer máximo controle visual, time não-React |
-| **Native (Swift/Kotlin)**  | UI nativa pura                                 | App muito específico de plataforma          |
-| **Kotlin Multiplatform**   | Lógica compartilhada, UI nativa                | Quer compartilhar só negócio, UI nativa     |
-| **Capacitor / Ionic**      | WebView com pontes nativas                     | Reaproveitar app web, performance secundária|
-| **NativeScript**           | UI nativa via JS, sem React                    | Stack JS sem investir em React              |
-| **Tauri Mobile**           | WebView + Rust no backend (beta)               | Time Rust, app simples                      |
-
-Dentro do mundo React Native:
-- **Expo** — toolchain por cima do RN; suporta a Nova Arquitetura via dev client a partir do SDK 51.
-- **Brownfield integration** — RN embarcado em apps nativos existentes, simplificado pela Nova Arquitetura.
-- **React Native Skia / Reanimated / Gesture Handler** — bibliotecas que tiram proveito direto de JSI/Fabric.
+### When the trade is worth it
+For new apps from 2025 onward, it is the default path — there is no real benefit in starting with the old architecture. For large production apps, migration is usually incremental: enable Fabric, migrate critical modules to TurboModules, rely on interop for the rest.
 
 ---
 
-## Fluxo completo: toque → setState
+## Ecosystem alternatives
 
-Este é o exercício mental mais útil para fixar tudo. Quando o usuário toca um botão que chama `setState`, o que acontece passo a passo:
+Do not confuse "alternative to Fabric" with "alternative to React Native". The main options outside RN:
+
+| Solution                    | Model                                          | When it makes sense                           |
+| --------------------------- | ---------------------------------------------- | --------------------------------------------- |
+| **Flutter**                 | Own UI (Skia/Impeller), Dart                   | Maximum visual control, non-React team        |
+| **Native (Swift/Kotlin)**   | Pure native UI                                 | Platform-specific app, strong native team     |
+| **Kotlin Multiplatform**    | Shared logic, native UI                        | Share only business logic, native UI per OS   |
+| **Capacitor / Ionic**       | WebView with native bridges                    | Reuse web app, performance is secondary       |
+| **NativeScript**            | Native UI via JS, without React                | JS stack without committing to React          |
+| **Tauri Mobile**            | WebView + Rust backend (beta)                  | Rust team, simple app                         |
+
+Within the React Native world:
+- **Expo** — toolchain on top of RN; supports New Architecture via dev client from SDK 51.
+- **Brownfield integration** — RN embedded in existing native apps, simplified by the New Architecture.
+- **React Native Skia / Reanimated / Gesture Handler** — libraries that leverage JSI/Fabric directly.
+
+---
+
+## Full flow: tap → setState
+
+This is the most useful mental exercise to internalize everything. When the user taps a button that calls `setState`, what happens step by step:
 
 ```
-  USUÁRIO TOCA A TELA
+  USER TAPS THE SCREEN
          │
          ▼
-  [UI THREAD] Sistema operacional detecta o toque
+  [UI THREAD] OS detects the touch
          │
          ▼
-  [UI THREAD] Gesture responder do RN processa o evento
+  [UI THREAD] RN gesture responder processes the event
          │
-         ▼  via JSI (Nova Arq.) ou Bridge serializada (antiga)
-  [JS THREAD] Seu handler onPress() é chamado
-         │
-         ▼
-  [JS THREAD] setState({ contador: contador + 1 })
+         ▼  via JSI (New Arch) or serialized Bridge (old)
+  [JS THREAD] Your onPress() handler is called
          │
          ▼
-  [JS THREAD] React agenda re-renderização
-              (modo concorrente: pode ser interrompida se chegar
-               algo mais urgente)
+  [JS THREAD] setState({ counter: counter + 1 })
          │
          ▼
-  [JS THREAD] React reconcilia — gera diff da árvore de componentes
+  [JS THREAD] React schedules a re-render
+              (concurrent mode: can be interrupted if something
+               more urgent arrives)
          │
          ▼
-  [BACKGROUND] Fabric recebe mutações na Shadow Tree (via JSI)
+  [JS THREAD] React reconciles — diffs the component tree
          │
          ▼
-  [BACKGROUND] Yoga recalcula layout se necessário
+  [BACKGROUND] Fabric receives Shadow Tree mutations (via JSI)
          │
          ▼
-  [BACKGROUND] Commit: "fotografia" imutável da nova UI é criada
+  [BACKGROUND] Yoga recalculates layout if needed
          │
          ▼
-  [UI THREAD] Mount: commit é aplicado
-              ├── UIView existentes são atualizadas
-              ├── novas UIViews são criadas
-              └── UIViews removidas são destruídas
+  [BACKGROUND] Commit: an immutable snapshot of the new UI is created
          │
          ▼
-  PRÓXIMO FRAME É RENDERIZADO COM O NOVO ESTADO
+  [UI THREAD] Mount: commit is applied
+              ├── existing UIViews are updated
+              ├── new UIViews are created
+              └── removed UIViews are destroyed
+         │
+         ▼
+  NEXT FRAME IS RENDERED WITH THE NEW STATE
 ```
 
-Na **arquitetura antiga**, cada seta que cruza threads passava pela Bridge com serialização JSON. Na **Nova Arquitetura**, as setas que cruzam JS ↔ nativo passam pelo JSI sem cópia.
+In the **old architecture**, every arrow crossing threads went through the Bridge with JSON serialization. In the **New Architecture**, arrows crossing JS ↔ native go through JSI with no copy.
 
 ---
 
-## Roteiro de estudo sugerido
+## Suggested study roadmap
 
-### Fase 1 — Fundamentos do RN (antes de ir para arquitetura)
+### Phase 1 — RN fundamentals (before going deep on architecture)
 
-1. Como o **Metro Bundler** funciona e o que ele gera.
-2. Ciclo de vida de componentes RN vs React web — o que é diferente.
-3. **StyleSheet e Yoga** — como o layout RN difere do CSS.
-4. Crie um **NativeModule simples** na arquitetura antiga (só para sentir o problema).
+1. How the **Metro Bundler** works and what it produces.
+2. Lifecycle of RN components vs web React components — what is different.
+3. **StyleSheet and Yoga** — how RN layout differs from CSS.
+4. Create a **simple NativeModule** in the old architecture (just to feel the problem TurboModules solve).
 
-### Fase 2 — Nova Arquitetura
+### Phase 2 — New Architecture
 
-5. **JSI** — o que é, por que é fundacional.
-6. **Hermes** — como engine afeta startup e memória.
-7. **Fabric** — Shadow Tree, Yoga, fases (render/commit/mount).
-8. **TurboModules + Codegen** — construa um do zero (como o `Calculator` deste projeto).
-9. **Thread model** — bloqueio intencional da JS thread (tela Threading no app).
+5. **JSI** — what it is, why it is foundational.
+6. **Hermes** — how the engine affects startup and memory.
+7. **Fabric** — Shadow Tree, Yoga, phases (render/commit/mount).
+8. **TurboModules + Codegen** — build one from scratch (like the `Calculator` in this project).
+9. **Thread model** — intentionally block the JS thread (Threading screen in the app).
 
-### Fase 3 — JSI na prática e migração
+### Phase 3 — JSI in practice and migration
 
 10. **Reanimated 3** — worklets, useSharedValue, useAnimatedStyle.
-11. **Concurrent React** — useTransition, Suspense no mobile.
-12. **Interop Layer** — como apps grandes migram aos poucos.
+11. **Concurrent React** — useTransition, Suspense on mobile.
+12. **Interop Layer** — how large apps migrate incrementally.
 
-### Exercícios para quem vai explicar
+### Exercises for those who need to explain it
 
-- Desenhe o diagrama completo do fluxo "toque → setState" sem consultar nada.
-- Explique a diferença entre Bridge e JSI para alguém usando uma analogia do dia a dia.
-- Crie um segundo TurboModule (`getDeviceName` ou `divideAsync` com rejeição).
-- Substitua o `Animated` da tela Threading por Reanimated 3.
+- Draw the full "tap → setState" flow diagram from memory.
+- Explain the difference between Bridge and JSI to someone using an everyday analogy.
+- Create a second TurboModule (`getDeviceName` or `divideAsync` with rejection).
+- Replace the `Animated` in the Threading screen with Reanimated 3.
 
 ---
 
-## Referências
+## References
 
-Oficial / canônico:
-- [Nova Arquitetura — visão geral](https://reactnative.dev/architecture/landing-page)
-- [TurboModules — introdução](https://reactnative.dev/docs/turbo-native-modules-introduction)
+Official / canonical:
+- [New Architecture — overview](https://reactnative.dev/architecture/landing-page)
+- [TurboModules — introduction](https://reactnative.dev/docs/turbo-native-modules-introduction)
 - [Fabric — renderer](https://reactnative.dev/architecture/fabric-renderer)
-- [JSI — explicação técnica](https://reactnative.dev/architecture/glossary#javascript-interfaces-jsi)
-- [Codegen para TurboModules](https://reactnative.dev/docs/the-new-architecture/using-codegen)
+- [JSI — technical explanation](https://reactnative.dev/architecture/glossary#javascript-interfaces-jsi)
+- [Codegen for TurboModules](https://reactnative.dev/docs/the-new-architecture/using-codegen)
 - [Hermes](https://reactnative.dev/docs/hermes)
 - [Metro Bundler](https://metrobundler.dev)
 
-Aprofundamento:
-- Posts do blog oficial do React Native sobre cada release (0.68→0.85).
-- [Reanimated docs](https://docs.swmansion.com/react-native-reanimated/) — uso real de JSI/UI thread.
+Further reading:
+- Official React Native blog posts for each release (0.68→0.85).
+- [Reanimated docs](https://docs.swmansion.com/react-native-reanimated/) — real-world JSI/UI thread usage.
 - [Expo + New Architecture](https://docs.expo.dev/guides/new-architecture/).
-- Talks da React Conf e App.js Conf — ótimas para fixar mental model.
+- Talks from React Conf and App.js Conf — great for building the right mental model.
 
 ---
 
-## Estrutura do projeto
+## Project structure
 
 ```
 .
-├── App.tsx                       # roteador minimalista entre telas
+├── App.tsx                       # minimal useState router between screens
 ├── src/
 │   ├── components/               # InfoCard, ScreenHeader
 │   ├── screens/
@@ -632,15 +631,15 @@ Aprofundamento:
 │   │   ├── TurboModuleDemoScreen.tsx
 │   │   └── ThreadingDemoScreen.tsx
 │   └── specs/
-│       └── NativeCalculator.ts   # spec do TurboModule (fonte do codegen)
+│       └── NativeCalculator.ts   # TurboModule spec (codegen source of truth)
 ├── android/app/src/main/java/com/rnarchdemo/
-│   ├── MainApplication.kt        # registra CalculatorPackage
+│   ├── MainApplication.kt        # registers CalculatorPackage
 │   └── calculator/
-│       ├── CalculatorModule.kt   # implementa NativeCalculatorSpec gerado
-│       └── CalculatorPackage.kt  # BaseReactPackage lazy
+│       ├── CalculatorModule.kt   # implements generated NativeCalculatorSpec
+│       └── CalculatorPackage.kt  # lazy BaseReactPackage
 ├── ios/RNArchDemo/
 │   ├── AppDelegate.swift
-│   ├── Calculator.h              # adota NativeCalculatorSpec gerado
-│   └── Calculator.mm             # implementação Obj-C++
-└── package.json                  # codegenConfig aponta para src/specs
+│   ├── Calculator.h              # adopts generated NativeCalculatorSpec
+│   └── Calculator.mm             # Obj-C++ implementation
+└── package.json                  # codegenConfig points to src/specs
 ```

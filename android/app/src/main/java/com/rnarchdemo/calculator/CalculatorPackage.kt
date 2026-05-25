@@ -7,9 +7,9 @@ import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 
 /**
- * BaseReactPackage é o substituto moderno de ReactPackage para a Nova
- * Arquitetura: expõe TurboModules de forma lazy (só instancia quando o JS
- * pede pela primeira vez).
+ * BaseReactPackage is the modern replacement for ReactPackage in the New
+ * Architecture: it exposes TurboModules lazily (only instantiated the first
+ * time JS requests them).
  */
 class CalculatorPackage : BaseReactPackage() {
 

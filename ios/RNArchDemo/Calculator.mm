@@ -1,10 +1,10 @@
 // Calculator.mm
 //
-// Implementação iOS do TurboModule Calculator.
+// iOS implementation of the Calculator TurboModule.
 //
-// O arquivo é .mm (Objective-C++) porque a infraestrutura de TurboModule
-// usa C++ internamente. RCT_EXPORT_MODULE registra o módulo com o
-// TurboModuleRegistry sob o nome "Calculator" — o mesmo da spec TS.
+// The file is .mm (Objective-C++) because the TurboModule infrastructure
+// uses C++ internally. RCT_EXPORT_MODULE registers the module with the
+// TurboModuleRegistry under the name "Calculator" — matching the TS spec.
 
 #import "Calculator.h"
 

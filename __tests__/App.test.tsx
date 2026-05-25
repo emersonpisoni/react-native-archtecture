@@ -1,14 +1,13 @@
 /**
  * @format
  *
- * O App importa o spec do TurboModule Calculator, que usa
- * TurboModuleRegistry.getEnforcing e lança erro fora do ambiente nativo.
- * Para um smoke test no Jest seria preciso mockar 'react-native'.
- * Mantemos o teste como skip — o foco do projeto é arquitetura, não
- * cobertura.
+ * The App imports the Calculator TurboModule spec, which calls
+ * TurboModuleRegistry.getEnforcing and throws outside a native environment.
+ * A proper smoke test would require mocking 'react-native'.
+ * Keeping the test as skip — the project focus is architecture, not coverage.
  */
 
-test.skip('renders correctly (skipped — requer mock do TurboModule)', () => {
-  // Para reabilitar, configure jest.mock para src/specs/NativeCalculator
-  // retornando um objeto com add/multiplyAsync/getConstants.
+test.skip('renders correctly (skipped — requires TurboModule mock)', () => {
+  // To re-enable, configure jest.mock for src/specs/NativeCalculator
+  // returning an object with add/multiplyAsync/getConstants.
 });

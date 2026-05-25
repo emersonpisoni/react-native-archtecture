@@ -28,17 +28,17 @@ export default function TurboModuleDemoScreen({ onBack }: Props) {
       const result = Calculator.add(Number(a), Number(b));
       setSyncResult(`${a} + ${b} = ${result}`);
     } catch (e) {
-      setSyncResult(`Erro: ${(e as Error).message}`);
+      setSyncResult(`Error: ${(e as Error).message}`);
     }
   };
 
   const runMultiply = async () => {
     try {
-      setAsyncResult('Calculando…');
+      setAsyncResult('Computing…');
       const result = await Calculator.multiplyAsync(Number(a), Number(b));
       setAsyncResult(`${a} × ${b} = ${result}`);
     } catch (e) {
-      setAsyncResult(`Erro: ${(e as Error).message}`);
+      setAsyncResult(`Error: ${(e as Error).message}`);
     }
   };
 
@@ -47,7 +47,7 @@ export default function TurboModuleDemoScreen({ onBack }: Props) {
       const c = Calculator.getConstants();
       setConstants(`PI = ${c.PI}\nE = ${c.E}`);
     } catch (e) {
-      setConstants(`Erro: ${(e as Error).message}`);
+      setConstants(`Error: ${(e as Error).message}`);
     }
   };
 
@@ -55,17 +55,17 @@ export default function TurboModuleDemoScreen({ onBack }: Props) {
     <View style={styles.container}>
       <ScreenHeader
         title="TurboModule"
-        subtitle="Calculator implementado em Kotlin + Objective-C++, chamado via JSI."
+        subtitle="Calculator implemented in Kotlin + Objective-C++, called via JSI."
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <InfoCard title="O que é um TurboModule?">
+        <InfoCard title="What is a TurboModule?">
           <Text style={styles.body}>
-            Versão evoluída dos NativeModules da arquitetura antiga. A spec
-            TypeScript em <Text style={styles.code}>src/specs/NativeCalculator.ts</Text>{' '}
-            é lida pelo codegen no build, que gera o contrato nativo. O JS
-            chama o método via JSI — referência C++ direta para o módulo
-            nativo, sem Bridge serializando JSON.
+            An evolved version of the old NativeModules. The TypeScript spec at{' '}
+            <Text style={styles.code}>src/specs/NativeCalculator.ts</Text> is
+            read by codegen at build time, which generates the native contract.
+            JS calls the method via JSI — a direct C++ reference to the native
+            module, with no Bridge serializing JSON.
           </Text>
         </InfoCard>
 
@@ -90,36 +90,36 @@ export default function TurboModuleDemoScreen({ onBack }: Props) {
           </View>
         </InfoCard>
 
-        <InfoCard title="add(a, b) — síncrono">
+        <InfoCard title="add(a, b) — synchronous">
           <Text style={styles.body}>
-            Retorna direto (não é Promise). Só é possível porque a chamada é
-            JSI: o método nativo é invocado na própria JS thread.
+            Returns directly (not a Promise). Only possible because the call is
+            JSI: the native method is invoked on the JS thread itself.
           </Text>
           <Pressable style={styles.button} onPress={runAdd}>
-            <Text style={styles.buttonText}>Executar add</Text>
+            <Text style={styles.buttonText}>Run add</Text>
           </Pressable>
           {syncResult ? <Text style={styles.result}>{syncResult}</Text> : null}
         </InfoCard>
 
         <InfoCard title="multiplyAsync(a, b) — Promise">
           <Text style={styles.body}>
-            Retorna Promise. No nativo, podemos delegar para uma thread de
-            background antes de resolver — útil para trabalho pesado.
+            Returns a Promise. On the native side we can delegate to a background
+            thread before resolving — useful for heavy work.
           </Text>
           <Pressable style={styles.button} onPress={runMultiply}>
-            <Text style={styles.buttonText}>Executar multiplyAsync</Text>
+            <Text style={styles.buttonText}>Run multiplyAsync</Text>
           </Pressable>
           {asyncResult ? <Text style={styles.result}>{asyncResult}</Text> : null}
         </InfoCard>
 
         <InfoCard title="getConstants() — sync">
           <Text style={styles.body}>
-            Lazy: as constantes só são pedidas ao nativo quando algum código JS
-            chama. Na arquitetura antiga, todas as constantes eram enviadas
-            eagerly no startup, encarecendo o cold start.
+            Lazy: constants are only fetched from native when JS code actually
+            calls this. In the old architecture, all constants were sent eagerly
+            at startup, increasing cold start time.
           </Text>
           <Pressable style={styles.button} onPress={showConstants}>
-            <Text style={styles.buttonText}>Ler constantes</Text>
+            <Text style={styles.buttonText}>Read constants</Text>
           </Pressable>
           {constants ? <Text style={styles.result}>{constants}</Text> : null}
         </InfoCard>

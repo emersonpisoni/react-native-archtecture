@@ -43,7 +43,7 @@ export default function ThreadingDemoScreen({ onBack }: Props) {
   const blockJsThread = () => {
     const start = Date.now();
     while (Date.now() - start < 2000) {
-      // bloqueia a JS thread por 2s de propósito
+      // intentionally blocks the JS thread for 2s
     }
     setCounter((c) => c + 1);
   };
@@ -52,28 +52,28 @@ export default function ThreadingDemoScreen({ onBack }: Props) {
     <View style={styles.container}>
       <ScreenHeader
         title="Thread Model"
-        subtitle="JS thread, UI thread e o que acontece quando travam."
+        subtitle="JS thread, UI thread, and what happens when each one blocks."
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <InfoCard title="Threads principais">
+        <InfoCard title="Main threads">
           <Text style={styles.body}>
-            • <Text style={styles.bold}>JS thread</Text> — onde seu código JS
-            roda (Hermes). Single-threaded.{'\n'}
-            • <Text style={styles.bold}>UI/Main thread</Text> — desenha frames
-            nativos e processa eventos do SO.{'\n'}
-            • <Text style={styles.bold}>Background/Shadow thread</Text> —
-            Fabric usa C++ aqui para reconciliar e calcular layout (Yoga).
+            • <Text style={styles.bold}>JS thread</Text> — where your JS code
+            runs (Hermes). Single-threaded.{'\n'}
+            • <Text style={styles.bold}>UI / Main thread</Text> — draws native
+            frames and processes OS events.{'\n'}
+            • <Text style={styles.bold}>Background / Shadow thread</Text> —
+            Fabric uses C++ here to reconcile and calculate layout (Yoga).
             {'\n'}
-            • Hermes e o runtime JSI permitem chamadas síncronas entre JS e
-            nativo, mas isso não muda o fato de que cada lado tem sua thread.
+            • Hermes and the JSI runtime allow synchronous calls between JS and
+            native, but each side still has its own thread.
           </Text>
         </InfoCard>
 
         <InfoCard title="Animated.useNativeDriver">
           <Text style={styles.body}>
-            A animação abaixo roda 100% na UI thread. Mesmo se você travar o
-            JS, ela continua suave.
+            The animation below runs 100% on the UI thread. Even if you block
+            the JS thread, it keeps running smoothly.
           </Text>
           <Animated.View
             style={[
@@ -82,25 +82,25 @@ export default function ThreadingDemoScreen({ onBack }: Props) {
             ]}
           />
           <Pressable style={styles.button} onPress={startAnimationNative}>
-            <Text style={styles.buttonText}>Iniciar animação</Text>
+            <Text style={styles.buttonText}>Start animation</Text>
           </Pressable>
         </InfoCard>
 
-        <InfoCard title="Bloqueando a JS thread">
+        <InfoCard title="Blocking the JS thread">
           <Text style={styles.body}>
-            O botão abaixo executa um while loop síncrono por 2s no JS. A
-            animação continua porque está na UI thread, mas qualquer setState
-            (ex: o contador) fica preso até o loop acabar.
+            The button below runs a synchronous while loop for 2s in JS. The
+            animation keeps going because it lives on the UI thread, but any
+            setState (e.g. the counter) is stuck until the loop finishes.
           </Text>
           <Pressable style={styles.dangerButton} onPress={blockJsThread}>
-            <Text style={styles.buttonText}>Travar JS por 2s</Text>
+            <Text style={styles.buttonText}>Block JS for 2s</Text>
           </Pressable>
-          <Text style={styles.counter}>Cliques registrados: {counter}</Text>
+          <Text style={styles.counter}>Registered clicks: {counter}</Text>
           <Text style={styles.note}>
-            Na arquitetura antiga, isso também bloqueava qualquer comunicação
-            com o nativo (a Bridge tinha que aguardar a JS thread). Com
-            TurboModules + JSI, módulos invocados a partir do nativo podem
-            seguir respondendo (dependendo do design).
+            In the old architecture, this also blocked all communication with
+            native (the Bridge had to wait for the JS thread). With TurboModules
+            + JSI, modules invoked from native can keep responding (depending on
+            the design).
           </Text>
         </InfoCard>
       </ScrollView>

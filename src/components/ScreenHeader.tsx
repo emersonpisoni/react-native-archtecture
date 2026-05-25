@@ -11,7 +11,7 @@ export default function ScreenHeader({ title, subtitle, onBack }: Props) {
     <View style={styles.container}>
       {onBack && (
         <Pressable onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>‹ Voltar</Text>
+          <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
       )}
       <Text style={styles.title}>{title}</Text>

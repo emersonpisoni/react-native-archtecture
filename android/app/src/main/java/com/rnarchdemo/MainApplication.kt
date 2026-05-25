@@ -15,8 +15,8 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // TurboModule definido neste app (não é auto-linkado porque não é
-          // um package npm separado).
+          // TurboModule defined inside this app (not auto-linked because it
+          // is not a separate npm package).
           add(CalculatorPackage())
         },
     )

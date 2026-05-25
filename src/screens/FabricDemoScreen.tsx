@@ -24,36 +24,36 @@ export default function FabricDemoScreen({ onBack }: Props) {
     <View style={styles.container}>
       <ScreenHeader
         title="Fabric Renderer"
-        subtitle="Cada componente abaixo é uma view nativa renderizada pelo Fabric."
+        subtitle="Every component below is a native view rendered by Fabric."
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
-        <InfoCard title="O que é o Fabric?">
+        <InfoCard title="What is Fabric?">
           <Text style={styles.body}>
-            Fabric é o novo renderer da Nova Arquitetura. Cada componente JSX
-            (View, Text, TextInput…) vira um <Text style={styles.code}>HostComponent</Text>{' '}
-            nativo. O React reconcilia uma Shadow Tree em C++ que descreve a UI
-            de forma compartilhada entre JS e native — substitui o antigo
-            Paper renderer.
+            Fabric is the new renderer of the New Architecture. Every JSX
+            component (View, Text, TextInput…) becomes a native{' '}
+            <Text style={styles.code}>HostComponent</Text>. React reconciles a
+            Shadow Tree in C++ that describes the UI in a form shared between JS
+            and native — replacing the old Paper renderer.
           </Text>
         </InfoCard>
 
-        <InfoCard title="Por que importa?">
+        <InfoCard title="Why does it matter?">
           <Text style={styles.body}>
-            • Layout (Yoga) e commit podem rodar de forma síncrona quando o JS
-            precisa do tamanho — sem o ciclo assíncrono da Bridge.{'\n'}
-            • Menos cópias serializadas: o Shadow Tree é manipulado direto via
-            JSI a partir do JS.{'\n'}
-            • Componentes podem ser registrados via codegen (HostComponents
-            tipados a partir de uma spec TS).
+            • Layout (Yoga) and commit can run synchronously when JS needs the
+            size — no more async round-trip through the Bridge.{'\n'}
+            • Fewer serialized copies: the Shadow Tree is mutated directly via
+            JSI from JS.{'\n'}
+            • Components can be registered via codegen (typed HostComponents
+            from a TS spec).
           </Text>
         </InfoCard>
 
-        <InfoCard title="Componentes nativos em ação">
+        <InfoCard title="Native components in action">
           <Text style={styles.label}>TextInput (UITextField / EditText)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Digite algo…"
+            placeholder="Type something…"
             placeholderTextColor="#6b7385"
             value={text}
             onChangeText={setText}
@@ -65,12 +65,12 @@ export default function FabricDemoScreen({ onBack }: Props) {
           <View style={styles.row}>
             <Switch value={enabled} onValueChange={setEnabled} />
             <Text style={styles.bodyInline}>
-              {enabled ? 'Ligado' : 'Desligado'}
+              {enabled ? 'On' : 'Off'}
             </Text>
           </View>
 
           <Text style={[styles.label, styles.mt]}>
-            Views com flexbox (Yoga)
+            Views with flexbox (Yoga)
           </Text>
           <View style={styles.boxRow}>
             {Array.from({ length: boxes }).map((_, i) => (
@@ -82,29 +82,28 @@ export default function FabricDemoScreen({ onBack }: Props) {
               style={styles.button}
               onPress={() => setBoxes((n) => Math.max(1, n - 1))}
             >
-              − caixa
+              − box
             </Text>
             <Text
               style={styles.button}
               onPress={() => setBoxes((n) => Math.min(8, n + 1))}
             >
-              + caixa
+              + box
             </Text>
           </View>
           <Text style={styles.note}>
-            Cada alteração no estado dispara reconciliação React → mutações na
-            Shadow Tree → commit → mount. No Fabric isso vira chamadas C++
-            diretas, sem serialização JSON.
+            Every state change triggers React reconciliation → Shadow Tree
+            mutations → commit → mount. In Fabric this becomes direct C++ calls,
+            with no JSON serialization.
           </Text>
         </InfoCard>
 
-        <InfoCard title="Paper (arquitetura antiga)">
+        <InfoCard title="Paper (old architecture)">
           <Text style={styles.body}>
-            No Paper, o JS criava operações de UI que eram serializadas em JSON
-            e enviadas pela Bridge (assíncrona, batched) até a UI thread. Sem
-            forma de obter layout sincronamente do JS — daí soluções como{' '}
-            <Text style={styles.code}>onLayout</Text>{' '}
-            e medições assíncronas.
+            In Paper, JS created UI operations that were serialized to JSON and
+            sent over the Bridge (async, batched) to the UI thread. There was no
+            way to get layout synchronously from JS — hence workarounds like{' '}
+            <Text style={styles.code}>onLayout</Text> and async measurements.
           </Text>
         </InfoCard>
       </ScrollView>

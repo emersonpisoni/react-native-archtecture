@@ -1,28 +1,28 @@
 /**
- * Spec do TurboModule "Calculator".
+ * TurboModule spec for "Calculator".
  *
- * Esta spec é a fonte da verdade: o codegen lê este arquivo durante o build
- * e gera os contratos nativos (interface Java/Kotlin no Android, protocol
- * Objective-C no iOS) que o módulo nativo precisa implementar.
+ * This spec is the source of truth: codegen reads this file during the build
+ * and generates the native contracts (Java/Kotlin interface on Android,
+ * Objective-C protocol on iOS) that the native module must implement.
  *
- * - Convenção: arquivo deve começar com "Native" e estar referenciado em
- *   codegenConfig.jsSrcsDir no package.json.
- * - Tipos suportados: number, string, boolean, Object, Array, Promise<T>,
- *   void, e tuplas/objetos serializáveis. Veja a doc de codegen no RN.
+ * - Convention: the file must start with "Native" and be referenced in
+ *   codegenConfig.jsSrcsDir in package.json.
+ * - Supported types: number, string, boolean, Object, Array, Promise<T>,
+ *   void, and serializable tuples/objects. See the RN codegen docs.
  */
 
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
 
 export interface Spec extends TurboModule {
-  // Síncrono: graças ao JSI, podemos retornar valor sem Promise.
+  // Synchronous: thanks to JSI, we can return a value without a Promise.
   add(a: number, b: number): number;
 
-  // Assíncrono: útil quando o trabalho real é pesado e precisa rodar fora
-  // da JS thread.
+  // Asynchronous: useful when the actual work is heavy and needs to run
+  // off the JS thread.
   multiplyAsync(a: number, b: number): Promise<number>;
 
-  // Constantes expostas pelo módulo (ex: PI calculado em nativo).
+  // Constants exposed by the module (e.g. PI computed natively).
   getConstants(): { PI: number; E: number };
 }
 

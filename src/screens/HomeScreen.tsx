@@ -13,19 +13,19 @@ const demos: Demo[] = [
     id: 'fabric',
     title: 'Fabric Renderer',
     description:
-      'Componentes nativos renderizados pelo Fabric. Como ele substitui o Paper, o que é o Shadow Tree e por que o layout pode ser síncrono.',
+      'Native components rendered by Fabric. How it replaces Paper, what the Shadow Tree is, and why layout can be synchronous.',
   },
   {
     id: 'turbomodule',
     title: 'TurboModule (Calculator)',
     description:
-      'Chamada de um módulo nativo via JSI, sem Bridge. Tipos verificados via codegen a partir da spec TypeScript.',
+      'Calling a native module via JSI, without the Bridge. Types enforced at build time via codegen from the TypeScript spec.',
   },
   {
     id: 'threading',
     title: 'Thread Model',
     description:
-      'JS thread vs UI thread vs Shadow/Background. O que acontece quando você bloqueia cada uma.',
+      'JS thread vs UI thread vs Shadow/Background thread. What happens when you block each one.',
   },
 ];
 
@@ -39,8 +39,8 @@ export default function HomeScreen({ onNavigate }: Props) {
       <View style={styles.header}>
         <Text style={styles.title}>RN Architecture</Text>
         <Text style={styles.subtitle}>
-          Demos para entender Fabric, TurboModules e o thread model da Nova
-          Arquitetura. Cada tela traz explicação inline.
+          Demos to understand Fabric, TurboModules, and the thread model of the
+          New Architecture. Each screen has inline explanations.
         </Text>
       </View>
 
@@ -59,8 +59,8 @@ export default function HomeScreen({ onNavigate }: Props) {
       ))}
 
       <Text style={styles.footer}>
-        Leia o README.md na raiz do projeto para fundamentos completos,
-        tradeoffs e referências.
+        Read README.md at the project root for full architecture fundamentals,
+        tradeoffs, and references.
       </Text>
     </ScrollView>
   );

@@ -1,8 +1,8 @@
 /**
- * RNArchDemo — Projeto didático sobre React Native Architecture.
+ * RNArchDemo — Didactic project about React Native Architecture.
  *
- * Roteamento minimalista via useState para evitar adicionar dependências
- * (react-navigation, etc.) e manter o foco no que importa: arquitetura.
+ * Minimal useState-based router to avoid adding dependencies
+ * (react-navigation, etc.) and keep the focus on what matters: architecture.
  */
 
 import { useState } from 'react';
