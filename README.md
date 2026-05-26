@@ -1,10 +1,4 @@
-# React Native Architecture — Practical Guide
-
-Didactic project to understand, in a simple and hands-on way, the **React Native New Architecture** (Fabric, TurboModules, JSI, Hermes) — compared with the **old architecture** based on the Bridge.
-
-> This README is the study material. The app is just a visual aid to reinforce the concepts. Each screen's buttons trigger code that illustrates a specific point explained below.
-
----
+# React Native Architecture
 
 ## Table of Contents
 
@@ -97,6 +91,19 @@ Flow of a native call:
   (minimum: 2 serializations + 1 async round-trip)
 ```
 
+**What each piece is:**
+
+| Piece | What it does |
+|---|---|
+| **JS Thread** | Where your React/JS code runs. Single-threaded — one thing at a time. |
+| **JSC (JavaScriptCore)** | The JS engine (same as Safari). Parses and executes JS at runtime, no pre-compilation. |
+| **Bridge** | Async message queue. JS and native can only talk by serializing data to JSON, passing it through the queue, and deserializing on the other side. Both directions. |
+| **Paper Renderer** | The old UI engine. Receives serialized UI commands from the Bridge and creates/updates native views (UIView on iOS, View on Android). |
+| **NativeModules** | Native functionality (camera, GPS, storage…) exposed to JS. All modules are loaded on app startup — even the ones never used. |
+| **Yoga Layout** | The layout engine (Flexbox). Runs on a separate thread, but results still had to cross the Bridge to reach JS — making sync measurement impossible. |
+
+---
+
 ### New Architecture (RN 0.76+ default)
 
 ```
@@ -131,6 +138,21 @@ Flow of a native call:
   JS accesses C++ object on the global → invokes function → result returns
   (0 serializations, can be synchronous)
 ```
+
+**What each piece is:**
+
+| Piece | What it does |
+|---|---|
+| **JS Thread** | Same role as before — runs your JS/React code. The difference is how it communicates with native. |
+| **Hermes** | New JS engine built by Meta for mobile. Compiles JS to bytecode at build time — app starts faster and uses less memory than JSC. No JIT by design. |
+| **JSI (JavaScript Interface)** | A lean C++ API that replaces the Bridge. Native objects are exposed directly in the JS global — JS calls them like regular functions, with no serialization. The foundation of everything in the New Architecture. |
+| **Host Objects** | C++ objects that live inside the JS runtime. When JS accesses a property or calls a method on them, C++ responds directly — no message queue involved. |
+| **TurboModules** | The new version of NativeModules. Loaded lazily (only when first called by JS). Their API is defined in a TypeScript spec and enforced at build time via codegen — no free-form JSON. |
+| **Fabric Renderer** | The new UI engine. Instead of receiving serialized commands, it holds a C++ Shadow Tree that is mutated directly via JSI. Applies changes to native views via atomic commits. |
+| **Shadow Tree (C++)** | An in-memory C++ representation of the component tree. Lives close to the JS runtime — mutations happen via JSI without copying data. |
+| **Yoga Layout** | Same Flexbox engine as before, but now it runs in the background thread alongside the Shadow Tree. Results are available synchronously to JS via JSI. |
+| **Atomic commit** | When a render is ready, Fabric creates an immutable snapshot of the new UI and applies it to the UI thread all at once — no partial updates, no race conditions. |
+| **Codegen** | A build-time tool that reads TypeScript specs and generates typed native contracts (Java/Kotlin abstract class on Android, Obj-C protocol on iOS). Type errors surface at build time, not in production. |
 
 ### Direct comparison
 
